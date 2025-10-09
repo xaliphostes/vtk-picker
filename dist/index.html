@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTK Generic Picker Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        select,
+        input {
+            width: 200px;
+            padding: 5px;
+        }
+
+        button {
+            padding: 8px 15px;
+            margin-top: 10px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .info-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .info-value {
+            color: #666;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+    </style>
+  <script type="module" crossorigin src="/vtk-picker/assets/index-pQSaNPn-.js"></script>
+</head>
+
+<body>
+    <div id="container">
+        <div id="controls">
+            <h3>Picker Controls</h3>
+            <div class="control-group">
+                <label for="pickerType">Picker Type:</label>
+                <select id="pickerType">
+                    <option value="cell">Cell Picker</option>
+                    <option value="point">Point Picker</option>
+                    <option value="world">World Picker</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="tolerance">Tolerance:</label>
+                <input type="number" id="tolerance" value="0.005" step="0.001" min="0">
+            </div>
+        </div>
+
+        <div id="info">
+            <h3>Pick Information</h3>
+            <div class="info-item">
+                <span class="info-label">Status:</span>
+                <span class="info-value" id="pickStatus">Click on the objects to pick</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Object:</span>
+                <span class="info-value" id="actor">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Screen Position:</span>
+                <span class="info-value" id="screenPos">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">World Position:</span>
+                <span class="info-value" id="worldPos">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Cell ID:</span>
+                <span class="info-value" id="cellId">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Point ID:</span>
+                <span class="info-value" id="pointId">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Normal:</span>
+                <span class="info-value" id="normal">-</span>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

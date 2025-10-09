@@ -4,7 +4,7 @@ export default defineConfig({
     plugins: [],
     root: './',
     publicDir: 'public',
-    base: '/h2-viewer/', // must match your GitHub repo name
+    base: '/vtk-picker/', // must match your GitHub repo name
     build: {
         outDir: 'dist'
     }

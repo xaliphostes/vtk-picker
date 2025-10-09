@@ -107,8 +107,8 @@ export class GenericVTKPicker {
     pickFromMouseEvent(event: MouseEvent) {
         const canvas = this.renderWindow.getViews()[0].getCanvas();
         const bounds = canvas.getBoundingClientRect();
-        const x = event.position.x;
-        const y = event.position.y
+        const x = (event as any).position.x;
+        const y = (event as any).position.y
         return this.pick(x, y);
     }
 
