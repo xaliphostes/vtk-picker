@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VTK Generic Picker Demo</title>
+    <title>VTK Generic Picker Demo - Enhanced</title>
     <style>
         body {
             margin: 0;
@@ -23,18 +23,19 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 15px;
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
             z-index: 1000;
+            max-width: 300px;
         }
 
         #info {
             position: absolute;
             bottom: 10px;
             left: 10px;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 15px;
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
@@ -42,34 +43,47 @@
             max-width: 400px;
         }
 
+        #instructions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(30, 144, 255, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-width: 250px;
+        }
+
         .control-group {
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
 
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
+            font-size: 13px;
         }
 
         select,
-        input {
-            width: 200px;
-            padding: 5px;
-        }
-
-        button {
-            padding: 8px 15px;
-            margin-top: 10px;
-            cursor: pointer;
-            background: #007bff;
-            color: white;
-            border: none;
+        input[type="number"],
+        input[type="color"] {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
             border-radius: 3px;
+            box-sizing: border-box;
         }
 
-        button:hover {
-            background: #0056b3;
+        input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
+        .checkbox-label {
+            display: inline;
+            font-weight: normal;
         }
 
         .info-item {
@@ -88,16 +102,50 @@
 
         h3 {
             margin-top: 0;
+            margin-bottom: 15px;
             color: #007bff;
+            font-size: 16px;
+        }
+
+        #instructions h3 {
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        #instructions ul {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .color-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .color-input-group input[type="color"] {
+            width: 50px;
+            height: 30px;
+            padding: 2px;
+            cursor: pointer;
+        }
+
+        .color-input-group span {
+            font-size: 12px;
+            color: #666;
         }
     </style>
-  <script type="module" crossorigin src="/vtk-picker/assets/index-pQSaNPn-.js"></script>
+  <script type="module" crossorigin src="/vtk-picker/assets/index-GyjgdqMl.js"></script>
 </head>
 
 <body>
     <div id="container">
         <div id="controls">
-            <h3>Picker Controls</h3>
+            <h3>Picker Configuration</h3>
+
             <div class="control-group">
                 <label for="pickerType">Picker Type:</label>
                 <select id="pickerType">
@@ -106,17 +154,65 @@
                     <option value="world">World Picker</option>
                 </select>
             </div>
+
+            <div class="control-group">
+                <label for="modifierKey">Activation Key:</label>
+                <select id="modifierKey">
+                    <option value="none">None (Always Active)</option>
+                    <option value="shift">Shift Key</option>
+                    <option value="ctrl">Ctrl Key</option>
+                    <option value="alt">Alt Key</option>
+                </select>
+            </div>
+
             <div class="control-group">
                 <label for="tolerance">Tolerance:</label>
                 <input type="number" id="tolerance" value="0.005" step="0.001" min="0">
             </div>
+
+            <div class="control-group">
+                <input type="checkbox" id="showRay" checked>
+                <label for="showRay" class="checkbox-label">Show Ray During Drag</label>
+            </div>
+
+            <div class="control-group">
+                <label>Ray Color:</label>
+                <div class="color-input-group">
+                    <input type="color" id="rayColor" value="#ffff00">
+                    <span>Yellow</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Point Color:</label>
+                <div class="color-input-group">
+                    <input type="color" id="pointColor" value="#ff0000">
+                    <span>Red</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="pointRadius">Point Radius:</label>
+                <input type="number" id="pointRadius" value="0.05" step="0.01" min="0.01" max="0.5">
+            </div>
+        </div>
+
+        <div id="instructions">
+            <h3>How to Use</h3>
+            <ul>
+                <li>Select an activation key (or none)</li>
+                <li>Click (+ modifier key if set) to pick</li>
+                <li>Hold mouse button and drag to see ray</li>
+                <li>Release to clear visualization</li>
+                <li>Customize colors and appearance</li>
+            </ul>
         </div>
 
         <div id="info">
             <h3>Pick Information</h3>
             <div class="info-item">
                 <span class="info-label">Status:</span>
-                <span class="info-value" id="pickStatus">Click on the objects to pick</span>
+                <span class="info-value" id="pickStatus">Ready to pick</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Object:</span>
