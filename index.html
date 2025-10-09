@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTK Generic Picker Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        select,
+        input {
+            width: 200px;
+            padding: 5px;
+        }
+
+        button {
+            padding: 8px 15px;
+            margin-top: 10px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .info-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .info-value {
+            color: #666;
+        }
+
+        h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div id="controls">
+            <h3>Picker Controls</h3>
+            <div class="control-group">
+                <label for="pickerType">Picker Type:</label>
+                <select id="pickerType">
+                    <option value="cell">Cell Picker</option>
+                    <option value="point">Point Picker</option>
+                    <option value="world">World Picker</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="tolerance">Tolerance:</label>
+                <input type="number" id="tolerance" value="0.005" step="0.001" min="0">
+            </div>
+        </div>
+
+        <div id="info">
+            <h3>Pick Information</h3>
+            <div class="info-item">
+                <span class="info-label">Status:</span>
+                <span class="info-value" id="pickStatus">Click on the objects to pick</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Object:</span>
+                <span class="info-value" id="actor">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Screen Position:</span>
+                <span class="info-value" id="screenPos">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">World Position:</span>
+                <span class="info-value" id="worldPos">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Cell ID:</span>
+                <span class="info-value" id="cellId">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Point ID:</span>
+                <span class="info-value" id="pointId">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Normal:</span>
+                <span class="info-value" id="normal">-</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import '@kitware/vtk.js/Rendering/Profiles/Geometry';
+        import vtkFullScreenRenderWindow from '@kitware/vtk.js/Rendering/Misc/FullScreenRenderWindow';
+        import vtkActor from '@kitware/vtk.js/Rendering/Core/Actor';
+        import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
+        import vtkConeSource from '@kitware/vtk.js/Filters/Sources/ConeSource';
+        import vtkSphereSource from '@kitware/vtk.js/Filters/Sources/SphereSource';
+        import vtkCylinderSource from '@kitware/vtk.js/Filters/Sources/CylinderSource';
+
+        import { GenericVTKPicker, PickerType } from './src/VtkPicker.ts';
+
+
+        // Setup VTK scene
+        const fullScreenRenderer = vtkFullScreenRenderWindow.newInstance({
+            container: document.getElementById('container')
+        });
+        const renderer = fullScreenRenderer.getRenderer();
+        const renderWindow = fullScreenRenderer.getRenderWindow();
+
+        // Create a cone
+        const coneSource = vtkConeSource.newInstance({ height: 1.0, radius: 0.5, resolution: 20 });
+        const coneMapper = vtkMapper.newInstance();
+        coneMapper.setInputConnection(coneSource.getOutputPort());
+        const coneActor = vtkActor.newInstance();
+        coneActor.setMapper(coneMapper);
+        coneActor.getProperty().setColor(1.0, 0.3, 0.3);
+        coneActor.setPosition(-1.5, 0, 0);
+
+        // Create a sphere
+        const sphereSource = vtkSphereSource.newInstance({ radius: 0.5, phiResolution: 20, thetaResolution: 20 });
+        const sphereMapper = vtkMapper.newInstance();
+        sphereMapper.setInputConnection(sphereSource.getOutputPort());
+        const sphereActor = vtkActor.newInstance();
+        sphereActor.setMapper(sphereMapper);
+        sphereActor.getProperty().setColor(0.3, 1.0, 0.3);
+        sphereActor.setPosition(0, 0, 0);
+
+        // Create a cylinder
+        const cylinderSource = vtkCylinderSource.newInstance({ height: 1.0, radius: 0.3, resolution: 20 });
+        const cylinderMapper = vtkMapper.newInstance();
+        cylinderMapper.setInputConnection(cylinderSource.getOutputPort());
+        const cylinderActor = vtkActor.newInstance();
+        cylinderActor.setMapper(cylinderMapper);
+        cylinderActor.getProperty().setColor(0.3, 0.3, 1.0);
+        cylinderActor.setPosition(1.5, 0, 0);
+
+        // Add actors to renderer
+        renderer.addActor(coneActor);
+        renderer.addActor(sphereActor);
+        renderer.addActor(cylinderActor);
+        renderer.resetCamera();
+        renderWindow.render();
+
+        // Initialize picker
+        let picker = new GenericVTKPicker(renderer, renderWindow, {
+            type: PickerType.CELL,
+            tolerance: 0.005
+        });
+
+        // Add pick listener
+        picker.addPickListener((result) => {
+            updatePickInfo(result);
+        });
+
+        // Handle mouse clicks
+        const interactor = renderWindow.getInteractor();
+        interactor.onLeftButtonPress((event) => {
+            picker.pickFromMouseEvent(event);
+        });
+
+        // Update pick information display
+        function updatePickInfo(result) {
+            document.getElementById('screenPos').textContent = result.position.map(v => v.toFixed(2)).join(', ');
+
+            if (result.success === false) {
+                document.getElementById('pickStatus').textContent = 'No pick';
+                document.getElementById('worldPos').textContent = '-';
+                document.getElementById('cellId').textContent = '-';
+                document.getElementById('pointId').textContent = '-';
+                document.getElementById('normal').textContent = '-';
+                document.getElementById('actor').textContent = '-';
+            }
+            else {
+
+                document.getElementById('pickStatus').textContent = 'Pick Successful!'
+
+                document.getElementById('worldPos').textContent = result.worldPosition
+                    ? result.worldPosition.map(v => v.toFixed(3)).join(', ')
+                    : '-';
+                document.getElementById('cellId').textContent = result.cellId !== undefined ? result.cellId : '-';
+                document.getElementById('pointId').textContent = result.pointId !== undefined ? result.pointId : '-';
+                document.getElementById('normal').textContent = result.normal
+                    ? result.normal.map(v => v.toFixed(3)).join(', ')
+                    : '-';
+                document.getElementById('actor').textContent = result.actor !== undefined ? result.actor : '-';
+            }
+        }
+
+        document.getElementById('pickerType').addEventListener('change', () => {
+            picker.updateConfig({
+                type: document.getElementById('pickerType').value,
+            });
+        });
+
+        document.getElementById('tolerance').addEventListener('change', () => {
+            picker.updateConfig({
+                tolerance: parseFloat(document.getElementById('tolerance').value)
+            });
+        });
+
+    </script>
+</body>
+
+</html>
