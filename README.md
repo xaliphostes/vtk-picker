@@ -1,8 +1,6 @@
 # ScenePicker (vtk.js utility)
 
-`ScenePicker` is a lightweight helper class designed to simplify object picking in vtk.js scenes.  
-It wraps vtk.js mouse events (`onLeftButtonPress`, etc.) and any compatible vtk.js picker (`vtkCellPicker`, `vtkPointPicker`, `vtkPropPicker`, …),  
-and emits normalized, easy-to-use pick events.
+`ScenePicker` is a lightweight helper class designed to simplify object picking in vtk.js scenes.It wraps vtk.js mouse events (`onLeftButtonPress`, etc.) and any compatible vtk.js picker (`vtkCellPicker`, `vtkPointPicker`, `vtkPropPicker`, …),and emits normalized, easy-to-use pick events.
 
 ## [Demo](https://xaliphostes.github.io/vtk-picker/)
 
