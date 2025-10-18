@@ -1,288 +1,149 @@
-import vtkCellPicker from '@kitware/vtk.js/Rendering/Core/CellPicker';
-import vtkPointPicker from '@kitware/vtk.js/Rendering/Core/PointPicker';
-import vtkPicker from '@kitware/vtk.js/Rendering/Core/Picker';
-import vtkActor from '@kitware/vtk.js/Rendering/Core/Actor';
-import vtkLineSource from '@kitware/vtk.js/Filters/Sources/LineSource';
-import vtkSphereSource from '@kitware/vtk.js/Filters/Sources/SphereSource';
-import vtkMapper from '@kitware/vtk.js/Rendering/Core/Mapper';
-export class GenericVTKPicker {
-    constructor(renderer, renderWindow, config = {
-        type: "cell" /* PickerType.CELL */,
-        modifierKey: "none" /* ModifierKey.NONE */,
-        showRayDuringDrag: true,
-        rayColor: [1.0, 1.0, 0.0],
-        pointColor: [1.0, 0.0, 0.0],
-        pointRadius: 0.05
-    }) {
-        this.pickCallbacks = [];
-        // Ray visualization
-        this.rayActor = null;
-        this.rayLineSource = null;
-        this.pointActor = null;
-        this.pointSphereSource = null;
-        // State tracking
-        this.isMouseDown = false;
-        this.lastPickResult = null;
-        this.currentModifierPressed = false;
-        this.renderer = renderer;
-        this.renderWindow = renderWindow;
-        this.config = {
-            modifierKey: "none" /* ModifierKey.NONE */,
-            showRayDuringDrag: true,
-            rayColor: [1.0, 1.0, 0.0],
-            pointColor: [1.0, 0.0, 0.0],
-            pointRadius: 0.05,
-            ...config
+// Lightweight utility for vtk.js picking with key modifiers.
+// Works with vtkCellPicker / vtkPointPicker (or your own compatible "picker").
+// NOTE: seems that vtkPropPicker is not (yet?) implemented
+export class ScenePicker {
+    // private currentRenderer: vtkObject | undefined = undefined
+    constructor(interactor, picker, opts = {}) {
+        this.subUnsub = [];
+        this.listeners = new Set();
+        this.interactor = interactor;
+        // this.currentRenderer = renderer
+        this.picker = picker;
+        this.opts = {
+            button: opts.button ?? 'left',
+            requireModifiers: opts.requireModifiers ?? {},
         };
-        this.picker = this.createPicker();
-        this.setupPicker();
-        this.pickCallbacks = [];
-        this.setupVisualization();
-        this.setupInteractionHandlers();
+        this.attach();
     }
-    createPicker() {
-        switch (this.config.type) {
-            case "cell" /* PickerType.CELL */:
-                return vtkCellPicker.newInstance();
-            case "point" /* PickerType.POINT */:
-                return vtkPointPicker.newInstance();
-            case "world" /* PickerType.WORLD */:
-                return vtkPicker.newInstance();
-            default:
-                return vtkCellPicker.newInstance();
-        }
-    }
-    setupPicker() {
-        if (this.config.tolerance !== undefined) {
-            this.picker.setTolerance(this.config.tolerance);
-        }
-    }
-    setupVisualization() {
-        // Create ray line
-        this.rayLineSource = vtkLineSource.newInstance();
-        const rayMapper = vtkMapper.newInstance();
-        rayMapper.setInputConnection(this.rayLineSource.getOutputPort());
-        this.rayActor = vtkActor.newInstance();
-        this.rayActor.setMapper(rayMapper);
-        this.rayActor.getProperty().setColor(...(this.config.rayColor || [1.0, 1.0, 0.0]));
-        this.rayActor.getProperty().setLineWidth(2);
-        this.rayActor.setVisibility(false);
-        // Create intersection point sphere
-        this.pointSphereSource = vtkSphereSource.newInstance({
-            radius: this.config.pointRadius || 0.05,
-            phiResolution: 16,
-            thetaResolution: 16
-        });
-        const pointMapper = vtkMapper.newInstance();
-        pointMapper.setInputConnection(this.pointSphereSource.getOutputPort());
-        this.pointActor = vtkActor.newInstance();
-        this.pointActor.setMapper(pointMapper);
-        this.pointActor.getProperty().setColor(...(this.config.pointColor || [1.0, 0.0, 0.0]));
-        this.pointActor.setVisibility(false);
-        // Add to renderer
-        this.renderer.addActor(this.rayActor);
-        this.renderer.addActor(this.pointActor);
-    }
-    setupInteractionHandlers() {
-        const interactor = this.renderWindow.getInteractor();
-        // Mouse down - start picking if modifier key is correct
-        interactor.onLeftButtonPress((event) => {
-            if (this.isModifierKeyActive(event)) {
-                this.isMouseDown = true;
-                this.performPick(event);
+    dispose() {
+        // call all uninstallers safely
+        while (this.subUnsub.length) {
+            const off = this.subUnsub.pop();
+            try {
+                off && off();
             }
-        });
-        // Mouse move - update ray visualization if mouse is down
-        interactor.onMouseMove((event) => {
-            if (this.isMouseDown && this.isModifierKeyActive(event) && this.config.showRayDuringDrag) {
-                this.updateRayVisualization(event);
-            }
-        });
-        // Mouse up - finalize pick and hide visualization
-        interactor.onLeftButtonRelease((event) => {
-            if (this.isMouseDown) {
-                this.isMouseDown = false;
-                this.hideVisualization();
-            }
-        });
-        // Track modifier key state changes
-        interactor.onKeyPress((event) => {
-            this.updateModifierState(event);
-        });
-        interactor.onKeyUp((event) => {
-            this.updateModifierState(event);
-            // If modifier key is released while dragging, hide visualization
-            if (this.isMouseDown && !this.isModifierKeyActive(event)) {
-                this.hideVisualization();
-            }
-        });
+            catch { /* ignore */ }
+        }
+        this.listeners.clear();
     }
-    isModifierKeyActive(event) {
-        switch (this.config.modifierKey) {
-            case "none" /* ModifierKey.NONE */:
-                return true;
-            case "shift" /* ModifierKey.SHIFT */:
-                return event.shiftKey === true;
-            case "ctrl" /* ModifierKey.CTRL */:
-                return event.controlKey === true;
-            case "alt" /* ModifierKey.ALT */:
-                return event.altKey === true;
-            default:
-                return true;
-        }
+    onPick(cb) {
+        this.listeners.add(cb);
+        return () => this.listeners.delete(cb);
     }
-    updateModifierState(event) {
-        this.currentModifierPressed = this.isModifierKeyActive(event);
-    }
-    performPick(event) {
-        const result = this.pickFromMouseEvent(event);
-        this.lastPickResult = result;
-        if (result.success && result.worldPosition) {
-            this.showVisualization(event, result.worldPosition);
-        }
-        else {
-            this.hideVisualization();
-        }
-    }
-    updateRayVisualization(event) {
-        if (!this.lastPickResult || !this.lastPickResult.success) {
-            return;
-        }
-        // Get camera position for ray origin
-        const camera = this.renderer.getActiveCamera();
-        const cameraPos = camera.getPosition();
-        const pickPos = this.lastPickResult.worldPosition;
-        // Update ray
-        this.rayLineSource.setPoint1(cameraPos[0], cameraPos[1], cameraPos[2]);
-        this.rayLineSource.setPoint2(pickPos[0], pickPos[1], pickPos[2]);
-        // Ensure visualization is visible
-        if (this.rayActor && !this.rayActor.getVisibility()) {
-            this.rayActor.setVisibility(true);
-        }
-        if (this.pointActor && !this.pointActor.getVisibility()) {
-            this.pointActor.setVisibility(true);
-        }
-        this.renderWindow.render();
-    }
-    showVisualization(event, worldPosition) {
-        if (!this.config.showRayDuringDrag) {
-            return;
-        }
-        const camera = this.renderer.getActiveCamera();
-        const cameraPos = camera.getPosition();
-        // Set ray from camera to pick point
-        this.rayLineSource.setPoint1(cameraPos[0], cameraPos[1], cameraPos[2]);
-        this.rayLineSource.setPoint2(worldPosition[0], worldPosition[1], worldPosition[2]);
-        this.rayActor.setVisibility(true);
-        // Set point at pick position
-        this.pointActor.setPosition(worldPosition[0], worldPosition[1], worldPosition[2]);
-        this.pointActor.setVisibility(true);
-        this.renderWindow.render();
-    }
-    hideVisualization() {
-        if (this.rayActor) {
-            this.rayActor.setVisibility(false);
-        }
-        if (this.pointActor) {
-            this.pointActor.setVisibility(false);
-        }
-        this.renderWindow.render();
-    }
-    pick(x, y) {
-        this.picker.pick([x, y, 0], this.renderer);
-        const pickSuccessful = this.picker.getActors().length !== 0;
-        const result = {
-            success: pickSuccessful,
-            position: [x, y]
+    attach() {
+        const add = (sub) => {
+            const u = this.toUnsubscribe(sub);
+            if (u)
+                this.subUnsub.push(u);
         };
-        if (pickSuccessful) {
-            result.worldPosition = this.picker.getPickPosition();
-            result.actor = this.picker.getActors()[0];
-            if (this.config.type === "cell" /* PickerType.CELL */ && 'getCellId' in this.picker) {
-                const cellPicker = this.picker;
-                result.cellId = cellPicker.getCellId();
-                result.pickPosition = this.picker.getPickPosition();
-                // Get the normal from the picked data
-                const pickedData = cellPicker.getDataSet();
-                if (pickedData) {
-                    const cellData = pickedData.getCellData();
-                    const normals = cellData.getNormals();
-                    if (normals && result.cellId !== undefined) {
-                        const normalTuple = normals.getTuple(result.cellId);
-                        result.normal = [normalTuple[0], normalTuple[1], normalTuple[2]];
-                    }
-                }
-            }
-            if (this.config.type === "point" /* PickerType.POINT */ && 'getPointId' in this.picker) {
-                result.pointId = this.picker.getPointId();
-            }
-        }
-        this.notifyCallbacks(result);
-        return result;
-    }
-    pickFromMouseEvent(event) {
-        const canvas = this.renderWindow.getViews()[0].getCanvas();
-        const bounds = canvas.getBoundingClientRect();
-        const x = event.position.x;
-        const y = event.position.y;
-        return this.pick(x, y);
-    }
-    addPickListener(callback) {
-        this.pickCallbacks.push(callback);
-    }
-    removePickListener(callback) {
-        const index = this.pickCallbacks.indexOf(callback);
-        if (index > -1) {
-            this.pickCallbacks.splice(index, 1);
-        }
-    }
-    notifyCallbacks(result) {
-        this.pickCallbacks.forEach(callback => callback(result));
-    }
-    setTolerance(tolerance) {
-        this.picker.setTolerance(tolerance);
-        this.config.tolerance = tolerance;
-    }
-    updateConfig(config) {
-        if (config.type && config.type !== this.config.type) {
-            this.config.type = config.type;
-            this.picker = this.createPicker();
-            this.setupPicker();
-        }
-        if (config.tolerance !== undefined) {
-            this.setTolerance(config.tolerance);
-        }
-        if (config.modifierKey !== undefined) {
-            this.config.modifierKey = config.modifierKey;
-        }
-        if (config.showRayDuringDrag !== undefined) {
-            this.config.showRayDuringDrag = config.showRayDuringDrag;
-        }
-        if (config.rayColor) {
-            this.config.rayColor = config.rayColor;
-            if (this.rayActor) {
-                this.rayActor.getProperty().setColor(...config.rayColor);
-            }
-        }
-        if (config.pointColor) {
-            this.config.pointColor = config.pointColor;
-            if (this.pointActor) {
-                this.pointActor.getProperty().setColor(...config.pointColor);
-            }
-        }
-        if (config.pointRadius !== undefined) {
-            this.config.pointRadius = config.pointRadius;
-            if (this.pointSphereSource) {
-                this.pointSphereSource.setRadius(config.pointRadius);
-            }
+        const handler = (button) => (callData) => {
+            const { position, pokedRenderer } = callData || {};
+            if (!pokedRenderer || !position)
+                return;
+            // if (callData.pokedRenderer && callData.pokedRenderer !== this.currentRenderer) return;
+            // Normalize modifiers from vtk.js callData
+            const mods = {
+                shift: !!callData.shiftKey,
+                ctrl: !!callData.controlKey,
+                alt: !!callData.altKey,
+                meta: !!callData.metaKey,
+            };
+            // Enforce required modifiers if provided
+            if (!this.modifiersMatch(mods, this.opts.requireModifiers))
+                return;
+            const displayPos = [position.x, position.y, 0];
+            // Run the injected picker
+            this.picker.pick(displayPos, pokedRenderer);
+            const picked = this.computePicked(this.picker);
+            const baseEvt = {
+                renderer: pokedRenderer,
+                rawEvent: callData,
+                displayPos,
+                picked,
+                picker: this.picker,
+                modifiers: mods,
+                button,
+            };
+            // Attach normalized fields so the UI never sees nulls just because of a different picker
+            const norm = this.normalizePick(this.picker);
+            const evt = Object.assign(baseEvt, norm);
+            // Fan out to listeners
+            this.listeners.forEach((fn) => fn(evt));
+        };
+        // Wire the chosen button
+        switch (this.opts.button) {
+            case 'left':
+                add(this.interactor.onLeftButtonPress(handler('left')));
+                break;
+            case 'middle':
+                add(this.interactor.onMiddleButtonPress(handler('middle')));
+                break;
+            case 'right':
+                add(this.interactor.onRightButtonPress(handler('right')));
+                break;
         }
     }
-    destroy() {
-        if (this.rayActor) {
-            this.renderer.removeActor(this.rayActor);
+    // Decide if something was picked (works for Cell/Point/Prop)
+    computePicked(p) {
+        if (typeof p.getActors === 'function' && (p.getActors()?.length ?? 0) > 0)
+            return true;
+        if (typeof p.getProp3Ds === 'function' && (p.getProp3Ds()?.length ?? 0) > 0)
+            return true;
+        if (typeof p.getActor === 'function' && p.getActor())
+            return true;
+        if (typeof p.getViewProp === 'function' && p.getViewProp())
+            return true;
+        if (typeof p.getCellId === 'function' && typeof p.getCellId() === 'number' && p.getCellId() >= 0)
+            return true;
+        if (typeof p.getPointId === 'function' && typeof p.getPointId() === 'number' && p.getPointId() >= 0)
+            return true;
+        // Some pickers expose prop/composite ids
+        if (typeof p.getPropId === 'function' && typeof p.getPropId() === 'number' && p.getPropId() >= 0)
+            return true;
+        if (typeof p.getCompositeID === 'function' && typeof p.getCompositeID() === 'number' && p.getCompositeID() >= 0)
+            return true;
+        return false;
+    }
+    // Normalize result so your UI code doesn't have to care about picker type
+    normalizePick(p) {
+        // Actor / prop
+        let actor = null;
+        if (typeof p.getActor === 'function' && p.getActor())
+            actor = p.getActor();
+        else if (typeof p.getViewProp === 'function' && p.getViewProp())
+            actor = p.getViewProp();
+        else if (typeof p.getActors === 'function' && p.getActors()?.length)
+            actor = p.getActors()[0];
+        else if (typeof p.getProp3Ds === 'function' && p.getProp3Ds()?.length)
+            actor = p.getProp3Ds()[0];
+        // World position (present on Cell/Point pickers)
+        const world = typeof p.getPickPosition === 'function' ? p.getPickPosition() : null;
+        // IDs (may be -1 or undefined depending on picker)
+        const cellId = typeof p.getCellId === 'function' ? p.getCellId() : undefined;
+        const pointId = typeof p.getPointId === 'function' ? p.getPointId() : undefined;
+        return { actor, world, cellId, pointId };
+    }
+    modifiersMatch(mods, required) {
+        // Only check keys that are explicitly required
+        if (required.shift !== undefined && mods.shift !== required.shift)
+            return false;
+        if (required.ctrl !== undefined && mods.ctrl !== required.ctrl)
+            return false;
+        if (required.alt !== undefined && mods.alt !== required.alt)
+            return false;
+        if (required.meta !== undefined && mods.meta !== required.meta)
+            return false;
+        return true;
+    }
+    // Helper to normalize whatever onXxx returns into a callable unsubscriber
+    toUnsubscribe(sub) {
+        if (!sub)
+            return null;
+        if (typeof sub === 'function')
+            return sub; // some APIs return a direct unsubscriber
+        if (typeof sub.unsubscribe === 'function') {
+            return () => sub.unsubscribe(); // vtk.js returns { unsubscribe() { ... } }
         }
-        if (this.pointActor) {
-            this.renderer.removeActor(this.pointActor);
-        }
+        return null; // unknown shape; ignore
     }
 }
