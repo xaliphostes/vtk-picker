@@ -36,6 +36,12 @@ export type TSurfParseResult = {
  * Metadata supported: PROPERTIES, PROPERTY_CLASS_HEADER (unit, kind), NO_DATA_VALUES, ESIZES.
  * @example
  * ```ts
+ * // Setup scene ...
+ * const fs = vtkFullScreenRenderWindow.newInstance();
+ * const ren = fs.getRenderer();
+ * const rw = fs.getRenderWindow();
+ * 
+ * // ---------------------------------------------------------------------
  * // Load text (e.g., from file input or fetch)
  * const tsurfText = await fetch('/data/surface.tsurf').then(r => r.text());
  * 
@@ -46,6 +52,43 @@ export type TSurfParseResult = {
  * 
  * // Choose a scalar (first scalar property with size=1)
  * const scalarProp = properties.find(p => (p.size ?? 1) === 1)?.name;
+ * // ---------------------------------------------------------------------
+ * 
+ * const mapper = vtkMapper.newInstance();
+ * mapper.setInputData(polyData);
+ * mapper.setResolveCoincidentTopologyToPolygonOffset();
+ * 
+ * // Map by point field data
+ * if (scalarProp) {
+ *   mapper.setScalarModeToUsePointFieldData();
+ *   mapper.setColorModeToMapScalars();
+ *   mapper.setArrayName(scalarProp);
+ * 
+ *   // Compute range ignoring NaNs
+ *   const arr = polyData.getPointData().getArrayByName(scalarProp);
+ *   if (arr) {
+ *     const vals = (arr.getData() as Float32Array);
+ *     let min = +Infinity, max = -Infinity;
+ *     for (let i = 0; i < vals.length; i++) {
+ *       const v = vals[i];
+ *       if (Number.isNaN(v)) continue;
+ *       if (v < min) min = v;
+ *       if (v > max) max = v;
+ *     }
+ *     if (Number.isFinite(min) && Number.isFinite(max)) {
+ *       mapper.setScalarRange(min, max);
+ *     }
+ *   }
+ * }
+ * 
+ * const actor = vtkActor.newInstance();
+ * actor.setMapper(mapper);
+ * actor.getProperty().setEdgeVisibility(true);
+ * actor.getProperty().setEdgeColor(0.1, 0.1, 0.1);
+ * 
+ * ren.addActor(actor);
+ * ren.resetCamera();
+ * rw.render();
  */
 export function vtkPolyDataFromGocadTSurf(
     text: string,
