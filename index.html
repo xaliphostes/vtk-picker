@@ -199,18 +199,28 @@
         const CylinderSource = vtkCylinderSource;
 
         // Scene: cone, sphere, cylinder
-        function makeActorFrom(source, color, position) {
+        function makeActorFrom(source, color, position, edgesVisible) {
             const mapper = Mapper.newInstance();
             mapper.setInputConnection(source.getOutputPort());
+
             const actor = Actor.newInstance();
             actor.setMapper(mapper);
-            actor.getProperty().setColor(...color);
+
+            const prop = actor.getProperty();
+            prop.setColor(...color);
+            prop.setRepresentationToSurface();     // keep shaded surface
+            if (edgesVisible) {
+                prop.setEdgeVisibility(true);          // draw edges on top
+                prop.setEdgeColor(0, 0, 0);            // wireframe (edge) color
+                prop.setLineWidth(1.5);                // edge thickness (browser/GPU dependent)
+            }
+
             actor.setPosition(...position);
             return actor;
         }
 
         const cone = makeActorFrom(ConeSource.newInstance({ height: 1, radius: 0.5, resolution: 40 }), [1, .35, .35], [-1.5, 0, 0]);
-        const sphere = makeActorFrom(SphereSource.newInstance({ radius: 0.55, phiResolution: 32, thetaResolution: 32 }), [.35, 1, .35], [0, 0, 0]);
+        const sphere = makeActorFrom(SphereSource.newInstance({ radius: 0.55, phiResolution: 32, thetaResolution: 32 }), [.35, 1, .35], [0, 0, 0], true);
         const cyl = makeActorFrom(CylinderSource.newInstance({ height: 1.1, radius: 0.35, resolution: 40 }), [.35, .35, 1], [1.5, 0, 0]);
 
         renderer.addActor(cone);
