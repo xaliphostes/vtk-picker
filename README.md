@@ -11,7 +11,6 @@
 - Optional modifier key requirements (Shift, Ctrl, Alt, Meta/Cmd)
 - Normalized event interface across different picker types
 - Simple subscription-based API
-- Added a GOCAD TSurf -> vtkPolyData (with ATOM, PROPERTIES...). No tested yet
 
 ## Installation
 
